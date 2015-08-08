@@ -109,6 +109,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <sys/types.h>
@@ -348,7 +349,6 @@ static void freeCompletions(linenoiseCompletions *lc) {
  * structure as described in the structure definition. */
 static int completeLine(struct linenoiseState *ls) {
     linenoiseCompletions lc = { 0, NULL };
-    int nread, nwritten;
     char c = 0;
 
     completionCallback(ls->buf,&lc);
@@ -358,6 +358,8 @@ static int completeLine(struct linenoiseState *ls) {
         size_t stop = 0, i = 0;
 
         while(!stop) {
+            int nread;
+
             /* Show completion or original buffer */
             if (i < lc.len) {
                 struct linenoiseState saved = *ls;
@@ -391,6 +393,8 @@ static int completeLine(struct linenoiseState *ls) {
                 default:
                     /* Update buffer and return */
                     if (i < lc.len) {
+                        int nwritten;
+
                         nwritten = snprintf(ls->buf,ls->buflen,"%s",lc.cvec[i]);
                         ls->len = ls->pos = nwritten;
                     }
@@ -1028,7 +1032,6 @@ static char *linenoiseNoTTY(void) {
  * something even in the most desperate of the conditions. */
 char *linenoise(const char *prompt) {
     char buf[LINENOISE_MAX_LINE];
-    int count;
 
     if (!isatty(STDIN_FILENO)) {
         /* Not a tty: read from file / pipe. In this mode we don't want any
@@ -1040,13 +1043,17 @@ char *linenoise(const char *prompt) {
         printf("%s",prompt);
         fflush(stdout);
         if (fgets(buf,LINENOISE_MAX_LINE,stdin) == NULL) return NULL;
+
         len = strlen(buf);
         while(len && (buf[len-1] == '\n' || buf[len-1] == '\r')) {
             len--;
             buf[len] = '\0';
         }
+
         return strdup(buf);
     } else {
+        int count;
+
         count = linenoiseRaw(buf,LINENOISE_MAX_LINE,prompt);
         if (count == -1) return NULL;
         return strdup(buf);
@@ -1128,7 +1135,7 @@ int linenoiseHistorySetMaxLen(int len) {
     if (history) {
         int tocopy = history_len;
 
-        new = malloc(sizeof(char*)*len);
+        new = calloc(len, sizeof(char*));
         if (new == NULL) return 0;
 
         /* If we can't copy everything, free the elements we'll not use. */
@@ -1138,7 +1145,6 @@ int linenoiseHistorySetMaxLen(int len) {
             for (j = 0; j < tocopy-len; j++) free(history[j]);
             tocopy = len;
         }
-        memset(new,0,sizeof(char*)*len);
         memcpy(new,history+(history_len-tocopy), sizeof(char*)*tocopy);
         free(history);
         history = new;
